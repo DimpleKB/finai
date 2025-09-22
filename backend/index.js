@@ -10,14 +10,11 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 5000;
 
-// ------------------- Middleware -------------------
 app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
-// ------------------- PostgreSQL Pool -------------------
 const { Pool } = pkg;
-
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -26,20 +23,17 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
-pool.connect()
-  .then(() => console.log("✅ Database connected"))
-  .catch((err) => console.error("❌ DB connection error:", err.stack));
-
-// ------------------- Multer Setup -------------------
+// ----------------- Multer for Profile Pictures -----------------
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "uploads/"),
-  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname)),
+  filename: (req, file, cb) =>
+    cb(null, Date.now() + path.extname(file.originalname)),
 });
 const upload = multer({ storage });
 
-// ------------------- Auth Routes -------------------
-
-// Signup
+// ===============================================================
+// 🔹 AUTH ROUTES
+// ===============================================================
 app.post("/signup", async (req, res) => {
   const { username, email, password } = req.body;
   try {
@@ -51,32 +45,39 @@ app.post("/signup", async (req, res) => {
     res.json({ message: "✅ User registered", userId: result.rows[0].id });
   } catch (err) {
     console.error(err);
-    if (err.code === "23505") return res.status(400).json({ message: "⚠️ Email already exists" });
+    if (err.code === "23505")
+      return res.status(400).json({ message: "⚠️ Email already exists" });
     res.status(500).json({ message: "❌ Server error" });
   }
 });
 
-// Login
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
   try {
-    const result = await pool.query("SELECT * FROM users WHERE email=$1", [email]);
-    if (!result.rows.length) return res.status(401).json({ message: "⚠️ User not found" });
+    const result = await pool.query("SELECT * FROM users WHERE email=$1", [
+      email,
+    ]);
+    if (!result.rows.length)
+      return res.status(401).json({ message: "⚠️ User not found" });
 
     const user = result.rows[0];
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ message: "⚠️ Incorrect password" });
 
-    res.json({ message: "✅ Login successful", userId: user.id, email: user.email });
+    res.json({
+      message: "✅ Login successful",
+      userId: user.id,
+      email: user.email,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "❌ Server error" });
   }
 });
 
-// ------------------- User Routes -------------------
-
-// Get user details
+// ===============================================================
+// 🔹 USER ROUTES
+// ===============================================================
 app.get("/api/user/:userId", async (req, res) => {
   const { userId } = req.params;
   try {
@@ -84,7 +85,8 @@ app.get("/api/user/:userId", async (req, res) => {
       "SELECT id, username, email, profile_pic FROM users WHERE id=$1",
       [userId]
     );
-    if (!result.rows.length) return res.status(404).json({ message: "User not found" });
+    if (!result.rows.length)
+      return res.status(404).json({ message: "User not found" });
     res.json(result.rows[0]);
   } catch (err) {
     console.error("❌ Get User Error:", err);
@@ -92,7 +94,6 @@ app.get("/api/user/:userId", async (req, res) => {
   }
 });
 
-// Update user details
 app.put("/api/user/:userId", upload.single("profilePic"), async (req, res) => {
   const { userId } = req.params;
   const { username, email, password } = req.body;
@@ -101,19 +102,33 @@ app.put("/api/user/:userId", upload.single("profilePic"), async (req, res) => {
     const updates = [];
     const values = [];
 
-    if (username) { values.push(username); updates.push(`username=$${values.length}`); }
-    if (email) { values.push(email); updates.push(`email=$${values.length}`); }
-    if (password) { const hashed = await bcrypt.hash(password, 10); values.push(hashed); updates.push(`password=$${values.length}`); }
-    if (req.file) { values.push(req.file.filename); updates.push(`profile_pic=$${values.length}`); }
+    if (username) {
+      values.push(username);
+      updates.push(`username=$${values.length}`);
+    }
+    if (email) {
+      values.push(email);
+      updates.push(`email=$${values.length}`);
+    }
+    if (password) {
+      const hashed = await bcrypt.hash(password, 10);
+      values.push(hashed);
+      updates.push(`password=$${values.length}`);
+    }
+    if (req.file) {
+      values.push(req.file.filename);
+      updates.push(`profile_pic=$${values.length}`);
+    }
 
-    if (!updates.length) return res.status(400).json({ message: "No fields to update" });
+    if (!updates.length)
+      return res.status(400).json({ message: "No fields to update" });
 
-    updates.push(`updated_at=NOW()`);
     values.push(userId);
+    const query = `UPDATE users SET ${updates.join(
+      ", "
+    )}, updated_at=NOW() WHERE id=$${values.length} RETURNING id, username, email, profile_pic`;
 
-    const query = `UPDATE users SET ${updates.join(", ")} WHERE id=$${values.length} RETURNING id, username, email, profile_pic`;
     const result = await pool.query(query, values);
-
     res.json({ message: "✅ User updated", user: result.rows[0] });
   } catch (err) {
     console.error("❌ Update User Error:", err);
@@ -121,9 +136,9 @@ app.put("/api/user/:userId", upload.single("profilePic"), async (req, res) => {
   }
 });
 
-// ------------------- Transactions Routes -------------------
-
-// Add transaction
+// ===============================================================
+// 🔹 TRANSACTIONS ROUTES
+// ===============================================================
 app.post("/api/transactions/:userId", async (req, res) => {
   const { userId } = req.params;
   const { type, description, category, amount, date } = req.body;
@@ -144,7 +159,6 @@ app.post("/api/transactions/:userId", async (req, res) => {
   }
 });
 
-// Get transactions
 app.get("/api/transactions/:userId", async (req, res) => {
   const { userId } = req.params;
   try {
@@ -159,7 +173,6 @@ app.get("/api/transactions/:userId", async (req, res) => {
   }
 });
 
-// Update transaction
 app.put("/api/transactions/:userId/:id", async (req, res) => {
   const { userId, id } = req.params;
   const { description, category, amount, date, type } = req.body;
@@ -176,11 +189,13 @@ app.put("/api/transactions/:userId/:id", async (req, res) => {
   }
 });
 
-// Delete transaction
 app.delete("/api/transactions/:userId/:id", async (req, res) => {
   const { userId, id } = req.params;
   try {
-    await pool.query("DELETE FROM transactions WHERE user_id=$1 AND id=$2", [userId, id]);
+    await pool.query("DELETE FROM transactions WHERE user_id=$1 AND id=$2", [
+      userId,
+      id,
+    ]);
     res.json({ message: "✅ Transaction deleted" });
   } catch (err) {
     console.error("❌ Delete Transaction Error:", err);
@@ -188,13 +203,16 @@ app.delete("/api/transactions/:userId/:id", async (req, res) => {
   }
 });
 
-// ------------------- Budgets Routes -------------------
-
-// Get all budgets for a user
+// ===============================================================
+// 🔹 BUDGETS ROUTES
+// ===============================================================
 app.get("/api/budgets/:userId", async (req, res) => {
   const { userId } = req.params;
   try {
-    const result = await pool.query("SELECT * FROM budgets WHERE user_id=$1 ORDER BY id", [userId]);
+    const result = await pool.query(
+      "SELECT * FROM budgets WHERE user_id=$1 ORDER BY id",
+      [userId]
+    );
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -202,7 +220,6 @@ app.get("/api/budgets/:userId", async (req, res) => {
   }
 });
 
-// Add budget
 app.post("/api/budgets/:userId", async (req, res) => {
   const { userId } = req.params;
   const { category, amount } = req.body;
@@ -218,7 +235,6 @@ app.post("/api/budgets/:userId", async (req, res) => {
   }
 });
 
-// Edit budget
 app.put("/api/budgets/:userId/:budgetId", async (req, res) => {
   const { userId, budgetId } = req.params;
   const { category, amount } = req.body;
@@ -234,11 +250,13 @@ app.put("/api/budgets/:userId/:budgetId", async (req, res) => {
   }
 });
 
-// Delete budget
 app.delete("/api/budgets/:userId/:budgetId", async (req, res) => {
   const { userId, budgetId } = req.params;
   try {
-    await pool.query("DELETE FROM budgets WHERE id=$1 AND user_id=$2", [budgetId, userId]);
+    await pool.query("DELETE FROM budgets WHERE id=$1 AND user_id=$2", [
+      budgetId,
+      userId,
+    ]);
     res.json({ message: "Budget deleted" });
   } catch (err) {
     console.error(err);
@@ -246,13 +264,16 @@ app.delete("/api/budgets/:userId/:budgetId", async (req, res) => {
   }
 });
 
-// ----------------- Total Budget -----------------
-
-// Get total budget
+// ===============================================================
+// 🔹 TOTAL BUDGET ROUTES
+// ===============================================================
 app.get("/api/totalBudget/:userId", async (req, res) => {
   const { userId } = req.params;
   try {
-    const result = await pool.query("SELECT total_budget FROM total_budget WHERE user_id=$1", [userId]);
+    const result = await pool.query(
+      "SELECT total_budget FROM total_budget WHERE user_id=$1",
+      [userId]
+    );
     res.json({ totalBudget: result.rows[0]?.total_budget || 0 });
   } catch (err) {
     console.error(err);
@@ -260,7 +281,6 @@ app.get("/api/totalBudget/:userId", async (req, res) => {
   }
 });
 
-// Set total budget (Upsert)
 app.post("/api/totalBudget/:userId", async (req, res) => {
   const { userId } = req.params;
   const { totalBudget } = req.body;
@@ -280,8 +300,10 @@ app.post("/api/totalBudget/:userId", async (req, res) => {
   }
 });
 
-// ------------------- Test Route -------------------
+// ===============================================================
+// 🔹 SERVER START
+// ===============================================================
 app.get("/", (req, res) => res.send("🚀 Backend running"));
-
-// ------------------- Start Server -------------------
-app.listen(port, () => console.log(`✅ Server running at http://localhost:${port}`));
+app.listen(port, () =>
+  console.log(`✅ Server running at http://localhost:${port}`)
+);

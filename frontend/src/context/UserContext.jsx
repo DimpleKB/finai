@@ -1,23 +1,38 @@
-// src/context/UserContext.js
-import React, { createContext, useState, useEffect } from "react";
+import React, { createContext, useState, useEffect, useContext } from "react";
 
-export const UserContext = createContext();
+const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
+  const [currentUserId, setCurrentUserId] = useState(localStorage.getItem("userId") || null);
   const [user, setUser] = useState(null);
-  const userId = localStorage.getItem("userId");
 
+  // Fetch user data whenever currentUserId changes
   useEffect(() => {
-    if (!userId) return;
-    fetch(`http://localhost:5000/api/user/${userId}`)
-      .then(res => res.json())
-      .then(data => setUser(data))
-      .catch(console.error);
-  }, [userId]);
+    if (!currentUserId) {
+      setUser(null);
+      return;
+    }
+
+    const fetchUser = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/user/${currentUserId}`);
+        if (!res.ok) throw new Error("Failed to fetch user");
+        const data = await res.json();
+        setUser(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchUser();
+  }, [currentUserId]);
 
   return (
-    <UserContext.Provider value={{ user, setUser }}>
+    <UserContext.Provider value={{ currentUserId, setCurrentUserId, user, setUser }}>
       {children}
     </UserContext.Provider>
   );
 };
+
+// Custom hook for easier use
+export const useUser = () => useContext(UserContext);

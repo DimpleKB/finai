@@ -1,10 +1,12 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useUser } from "../context/UserContext";
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const { setCurrentUserId } = useUser(); // update context
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -14,10 +16,11 @@ function Login() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
+
       const data = await res.json();
       if (res.ok) {
-        localStorage.setItem("userId", data.userId); // ✅ store userId
-        alert("✅ Login successful!");
+        localStorage.setItem("userId", data.userId);
+        setCurrentUserId(data.userId); // update context → triggers Profile/Budget reload
         navigate("/homepage");
       } else {
         alert(data.message);
@@ -29,29 +32,12 @@ function Login() {
   };
 
   return (
-    <div className="container">
+    <div>
       <h2>Login</h2>
-      <form className="frm" onSubmit={handleSubmit}>
-        <p>Email</p>
-        <input
-          type="text"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <p>Password</p>
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        <button className="submit" type="submit">Login</button>
-        <p style={{ textAlign: "center" }}>
-          Don't have an account? <Link to="/signup">Signup</Link>
-        </p>
+      <form onSubmit={handleSubmit}>
+        <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <button type="submit">Login</button>
       </form>
     </div>
   );
