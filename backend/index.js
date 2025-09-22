@@ -1,0 +1,287 @@
+import express from "express";
+import cors from "cors";
+import bcrypt from "bcrypt";
+import pkg from "pg";
+import dotenv from "dotenv";
+import multer from "multer";
+import path from "path";
+
+dotenv.config();
+const app = express();
+const port = process.env.PORT || 5000;
+
+// ------------------- Middleware -------------------
+app.use(cors());
+app.use(express.json());
+app.use("/uploads", express.static("uploads"));
+
+// ------------------- PostgreSQL Pool -------------------
+const { Pool } = pkg;
+
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+});
+
+pool.connect()
+  .then(() => console.log("✅ Database connected"))
+  .catch((err) => console.error("❌ DB connection error:", err.stack));
+
+// ------------------- Multer Setup -------------------
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname)),
+});
+const upload = multer({ storage });
+
+// ------------------- Auth Routes -------------------
+
+// Signup
+app.post("/signup", async (req, res) => {
+  const { username, email, password } = req.body;
+  try {
+    const hashed = await bcrypt.hash(password, 10);
+    const result = await pool.query(
+      "INSERT INTO users (username,email,password) VALUES ($1,$2,$3) RETURNING id",
+      [username, email, hashed]
+    );
+    res.json({ message: "✅ User registered", userId: result.rows[0].id });
+  } catch (err) {
+    console.error(err);
+    if (err.code === "23505") return res.status(400).json({ message: "⚠️ Email already exists" });
+    res.status(500).json({ message: "❌ Server error" });
+  }
+});
+
+// Login
+app.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const result = await pool.query("SELECT * FROM users WHERE email=$1", [email]);
+    if (!result.rows.length) return res.status(401).json({ message: "⚠️ User not found" });
+
+    const user = result.rows[0];
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(401).json({ message: "⚠️ Incorrect password" });
+
+    res.json({ message: "✅ Login successful", userId: user.id, email: user.email });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "❌ Server error" });
+  }
+});
+
+// ------------------- User Routes -------------------
+
+// Get user details
+app.get("/api/user/:userId", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const result = await pool.query(
+      "SELECT id, username, email, profile_pic FROM users WHERE id=$1",
+      [userId]
+    );
+    if (!result.rows.length) return res.status(404).json({ message: "User not found" });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("❌ Get User Error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Update user details
+app.put("/api/user/:userId", upload.single("profilePic"), async (req, res) => {
+  const { userId } = req.params;
+  const { username, email, password } = req.body;
+
+  try {
+    const updates = [];
+    const values = [];
+
+    if (username) { values.push(username); updates.push(`username=$${values.length}`); }
+    if (email) { values.push(email); updates.push(`email=$${values.length}`); }
+    if (password) { const hashed = await bcrypt.hash(password, 10); values.push(hashed); updates.push(`password=$${values.length}`); }
+    if (req.file) { values.push(req.file.filename); updates.push(`profile_pic=$${values.length}`); }
+
+    if (!updates.length) return res.status(400).json({ message: "No fields to update" });
+
+    updates.push(`updated_at=NOW()`);
+    values.push(userId);
+
+    const query = `UPDATE users SET ${updates.join(", ")} WHERE id=$${values.length} RETURNING id, username, email, profile_pic`;
+    const result = await pool.query(query, values);
+
+    res.json({ message: "✅ User updated", user: result.rows[0] });
+  } catch (err) {
+    console.error("❌ Update User Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+// ------------------- Transactions Routes -------------------
+
+// Add transaction
+app.post("/api/transactions/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const { type, description, category, amount, date } = req.body;
+
+  if (!type || !description || !category || !amount || !date)
+    return res.status(400).json({ message: "All fields are required" });
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO transactions (user_id, type, description, category, amount, date)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [userId, type, description, category, amount, date]
+    );
+    res.json({ message: "✅ Transaction added", transaction: result.rows[0] });
+  } catch (err) {
+    console.error("❌ Transaction Error:", err.message);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+// Get transactions
+app.get("/api/transactions/:userId", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const result = await pool.query(
+      "SELECT * FROM transactions WHERE user_id=$1 ORDER BY date DESC",
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Fetch Transactions Error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Update transaction
+app.put("/api/transactions/:userId/:id", async (req, res) => {
+  const { userId, id } = req.params;
+  const { description, category, amount, date, type } = req.body;
+  try {
+    const result = await pool.query(
+      `UPDATE transactions SET description=$1, category=$2, amount=$3, date=$4, type=$5
+       WHERE user_id=$6 AND id=$7 RETURNING *`,
+      [description, category, amount, date, type, userId, id]
+    );
+    res.json({ message: "✅ Transaction updated", transaction: result.rows[0] });
+  } catch (err) {
+    console.error("❌ Update Transaction Error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Delete transaction
+app.delete("/api/transactions/:userId/:id", async (req, res) => {
+  const { userId, id } = req.params;
+  try {
+    await pool.query("DELETE FROM transactions WHERE user_id=$1 AND id=$2", [userId, id]);
+    res.json({ message: "✅ Transaction deleted" });
+  } catch (err) {
+    console.error("❌ Delete Transaction Error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ------------------- Budgets Routes -------------------
+
+// Get all budgets for a user
+app.get("/api/budgets/:userId", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const result = await pool.query("SELECT * FROM budgets WHERE user_id=$1 ORDER BY id", [userId]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch budgets" });
+  }
+});
+
+// Add budget
+app.post("/api/budgets/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const { category, amount } = req.body;
+  try {
+    const result = await pool.query(
+      "INSERT INTO budgets (user_id, category, amount) VALUES ($1, $2, $3) RETURNING *",
+      [userId, category, amount]
+    );
+    res.json({ budget: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to add budget" });
+  }
+});
+
+// Edit budget
+app.put("/api/budgets/:userId/:budgetId", async (req, res) => {
+  const { userId, budgetId } = req.params;
+  const { category, amount } = req.body;
+  try {
+    const result = await pool.query(
+      "UPDATE budgets SET category=$1, amount=$2 WHERE id=$3 AND user_id=$4 RETURNING *",
+      [category, amount, budgetId, userId]
+    );
+    res.json({ budget: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update budget" });
+  }
+});
+
+// Delete budget
+app.delete("/api/budgets/:userId/:budgetId", async (req, res) => {
+  const { userId, budgetId } = req.params;
+  try {
+    await pool.query("DELETE FROM budgets WHERE id=$1 AND user_id=$2", [budgetId, userId]);
+    res.json({ message: "Budget deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete budget" });
+  }
+});
+
+// ----------------- Total Budget -----------------
+
+// Get total budget
+app.get("/api/totalBudget/:userId", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const result = await pool.query("SELECT total_budget FROM total_budget WHERE user_id=$1", [userId]);
+    res.json({ totalBudget: result.rows[0]?.total_budget || 0 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch total budget" });
+  }
+});
+
+// Set total budget (Upsert)
+app.post("/api/totalBudget/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const { totalBudget } = req.body;
+  try {
+    const result = await pool.query(
+      `INSERT INTO total_budget (user_id, total_budget) 
+       VALUES ($1, $2)
+       ON CONFLICT (user_id)
+       DO UPDATE SET total_budget = $2
+       RETURNING *`,
+      [userId, totalBudget]
+    );
+    res.json({ totalBudget: result.rows[0].total_budget });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to set total budget" });
+  }
+});
+
+// ------------------- Test Route -------------------
+app.get("/", (req, res) => res.send("🚀 Backend running"));
+
+// ------------------- Start Server -------------------
+app.listen(port, () => console.log(`✅ Server running at http://localhost:${port}`));
