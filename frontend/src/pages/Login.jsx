@@ -1,12 +1,10 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useUser } from "../context/UserContext";
+import { useNavigate, Link } from "react-router-dom";
 
 function Login() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
-  const { setCurrentUserId } = useUser(); // update context
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -14,14 +12,12 @@ function Login() {
       const res = await fetch("http://localhost:5000/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       });
-
       const data = await res.json();
       if (res.ok) {
-        localStorage.setItem("userId", data.userId);
-        setCurrentUserId(data.userId); // update context → triggers Profile/Budget reload
-        navigate("/homepage");
+        alert("✅ Login successful!");
+        navigate("/dashboard");
       } else {
         alert(data.message);
       }
@@ -32,12 +28,27 @@ function Login() {
   };
 
   return (
-    <div>
+    <div className="container">
       <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
-        <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        <button type="submit">Login</button>
+      <form className="frm" onSubmit={handleSubmit}>
+        <p>Username</p>
+        <input
+          type="text"
+          placeholder="Username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+        />
+        <p>Password</p>
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        <button className="submit" type="submit">Login</button>
+        <p>Don't have an account? <Link to="/signup">Signup</Link></p>
       </form>
     </div>
   );
