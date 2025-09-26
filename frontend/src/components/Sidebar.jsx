@@ -1,9 +1,9 @@
 import React, { useContext } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { UserContext } from "../context/UserContext";
+import { useUser } from "../context/UserContext";
 
 const Sidebar = () => {
-  const { user } = useContext(UserContext);
+  const { user } = useUser();
   const location = useLocation();
   const navigate = useNavigate();
 

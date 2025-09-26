@@ -53,16 +53,20 @@ app.post("/signup", async (req, res) => {
 
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
+
   try {
     const result = await pool.query("SELECT * FROM users WHERE email=$1", [
       email,
     ]);
+
     if (!result.rows.length)
       return res.status(401).json({ message: "⚠️ User not found" });
 
     const user = result.rows[0];
     const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ message: "⚠️ Incorrect password" });
+
+    if (!match)
+      return res.status(401).json({ message: "⚠️ Incorrect password" });
 
     res.json({
       message: "✅ Login successful",
@@ -74,6 +78,7 @@ app.post("/login", async (req, res) => {
     res.status(500).json({ message: "❌ Server error" });
   }
 });
+
 
 // ===============================================================
 // 🔹 USER ROUTES
@@ -94,47 +99,67 @@ app.get("/api/user/:userId", async (req, res) => {
   }
 });
 
+// Update User Profile
 app.put("/api/user/:userId", upload.single("profilePic"), async (req, res) => {
   const { userId } = req.params;
   const { username, email, password } = req.body;
 
   try {
+    console.log("Incoming data:", req.body);
+    console.log("Uploaded file:", req.file);
+
     const updates = [];
     const values = [];
 
-    if (username) {
-      values.push(username);
+    // Username
+    if (username && username.trim() !== "") {
+      values.push(username.trim());
       updates.push(`username=$${values.length}`);
     }
-    if (email) {
-      values.push(email);
+
+    // Email
+    if (email && email.trim() !== "") {
+      values.push(email.trim());
       updates.push(`email=$${values.length}`);
     }
-    if (password) {
-      const hashed = await bcrypt.hash(password, 10);
+
+    // Password
+    if (password && password.trim() !== "") {
+      const hashed = await bcrypt.hash(password.trim(), 10);
       values.push(hashed);
       updates.push(`password=$${values.length}`);
     }
+
+    // Profile picture
     if (req.file) {
       values.push(req.file.filename);
       updates.push(`profile_pic=$${values.length}`);
     }
 
-    if (!updates.length)
-      return res.status(400).json({ message: "No fields to update" });
+    if (updates.length === 0) {
+      return res.status(400).json({ message: "No valid fields to update" });
+    }
 
+    // Add updated_at timestamp
+    updates.push(`updated_at=NOW()`);
+
+    // Add userId as last value for WHERE clause
     values.push(userId);
-    const query = `UPDATE users SET ${updates.join(
-      ", "
-    )}, updated_at=NOW() WHERE id=$${values.length} RETURNING id, username, email, profile_pic`;
+    const query = `UPDATE users SET ${updates.join(", ")} WHERE id=$${values.length} RETURNING id, username, email, profile_pic`;
 
     const result = await pool.query(query, values);
-    res.json({ message: "✅ User updated", user: result.rows[0] });
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ message: "✅ Profile updated successfully", user: result.rows[0] });
   } catch (err) {
     console.error("❌ Update User Error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
+
 
 // ===============================================================
 // 🔹 TRANSACTIONS ROUTES

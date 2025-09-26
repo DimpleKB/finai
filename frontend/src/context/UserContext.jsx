@@ -1,38 +1,35 @@
-import React, { createContext, useState, useEffect, useContext } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 
+// 1️⃣ Create context
 const UserContext = createContext();
 
+// 2️⃣ Provider component
 export const UserProvider = ({ children }) => {
-  const [currentUserId, setCurrentUserId] = useState(localStorage.getItem("userId") || null);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem("user");
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
 
-  // Fetch user data whenever currentUserId changes
+  const [currentUserId, setCurrentUserId] = useState(() => {
+    return localStorage.getItem("userId") || null;
+  });
+
   useEffect(() => {
-    if (!currentUserId) {
-      setUser(null);
-      return;
-    }
+    if (user) localStorage.setItem("user", JSON.stringify(user));
+    else localStorage.removeItem("user");
+  }, [user]);
 
-    const fetchUser = async () => {
-      try {
-        const res = await fetch(`http://localhost:5000/api/user/${currentUserId}`);
-        if (!res.ok) throw new Error("Failed to fetch user");
-        const data = await res.json();
-        setUser(data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    fetchUser();
+  useEffect(() => {
+    if (currentUserId) localStorage.setItem("userId", currentUserId);
+    else localStorage.removeItem("userId");
   }, [currentUserId]);
 
   return (
-    <UserContext.Provider value={{ currentUserId, setCurrentUserId, user, setUser }}>
+    <UserContext.Provider value={{ user, setUser, currentUserId, setCurrentUserId }}>
       {children}
     </UserContext.Provider>
   );
 };
 
-// Custom hook for easier use
+// 3️⃣ Custom hook (named export)
 export const useUser = () => useContext(UserContext);

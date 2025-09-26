@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useUser } from "../context/UserContext";
 
 function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const { setUser, setCurrentUserId } = useUser();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -12,12 +14,16 @@ function Login() {
       const res = await fetch("http://localhost:5000/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email: username, password }),
       });
+
       const data = await res.json();
+
       if (res.ok) {
+        setUser({ email: data.email, userId: data.userId });
+        setCurrentUserId(data.userId);
         alert("✅ Login successful!");
-        navigate("/dashboard");
+        navigate("/homepage");
       } else {
         alert(data.message);
       }
@@ -31,10 +37,10 @@ function Login() {
     <div className="container">
       <h2>Login</h2>
       <form className="frm" onSubmit={handleSubmit}>
-        <p>Username</p>
+        <p>Email</p>
         <input
           type="text"
-          placeholder="Username"
+          placeholder="Email"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
