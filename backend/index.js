@@ -160,23 +160,27 @@ app.put("/api/user/:userId", upload.single("profilePic"), async (req, res) => {
   }
 });
 
-
 // ===============================================================
 // 🔹 TRANSACTIONS ROUTES
 // ===============================================================
+// ===============================================================
+// 🔹 TRANSACTIONS ROUTES (no description field)
+// ===============================================================
 app.post("/api/transactions/:userId", async (req, res) => {
   const { userId } = req.params;
-  const { type, description, category, amount, date } = req.body;
+  const { type, category, amount, date } = req.body;
 
-  if (!type || !description || !category || !amount || !date)
+  // ✅ Validation
+  if (!type || !category || !amount || !date)
     return res.status(400).json({ message: "All fields are required" });
 
   try {
     const result = await pool.query(
-      `INSERT INTO transactions (user_id, type, description, category, amount, date)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [userId, type, description, category, amount, date]
+      `INSERT INTO transactions (user_id, type, category, amount, date)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [userId, type, category, amount, date]
     );
+
     res.json({ message: "✅ Transaction added", transaction: result.rows[0] });
   } catch (err) {
     console.error("❌ Transaction Error:", err.message);
@@ -184,6 +188,9 @@ app.post("/api/transactions/:userId", async (req, res) => {
   }
 });
 
+// ===============================================================
+// 🔹 GET all transactions
+// ===============================================================
 app.get("/api/transactions/:userId", async (req, res) => {
   const { userId } = req.params;
   try {
@@ -198,15 +205,22 @@ app.get("/api/transactions/:userId", async (req, res) => {
   }
 });
 
+// ===============================================================
+// 🔹 UPDATE a transaction
+// ===============================================================
 app.put("/api/transactions/:userId/:id", async (req, res) => {
   const { userId, id } = req.params;
-  const { description, category, amount, date, type } = req.body;
+  const { category, amount, date, type } = req.body;
+
   try {
     const result = await pool.query(
-      `UPDATE transactions SET description=$1, category=$2, amount=$3, date=$4, type=$5
-       WHERE user_id=$6 AND id=$7 RETURNING *`,
-      [description, category, amount, date, type, userId, id]
+      `UPDATE transactions 
+       SET category=$1, amount=$2, date=$3, type=$4
+       WHERE user_id=$5 AND id=$6 
+       RETURNING *`,
+      [category, amount, date, type, userId, id]
     );
+
     res.json({ message: "✅ Transaction updated", transaction: result.rows[0] });
   } catch (err) {
     console.error("❌ Update Transaction Error:", err);
@@ -214,6 +228,9 @@ app.put("/api/transactions/:userId/:id", async (req, res) => {
   }
 });
 
+// ===============================================================
+// 🔹 DELETE a transaction
+// ===============================================================
 app.delete("/api/transactions/:userId/:id", async (req, res) => {
   const { userId, id } = req.params;
   try {
@@ -227,6 +244,7 @@ app.delete("/api/transactions/:userId/:id", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 // ===============================================================
 // 🔹 BUDGETS ROUTES
