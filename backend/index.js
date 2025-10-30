@@ -18,7 +18,7 @@ app.use("/uploads", express.static("uploads"));
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-app.use(express.static(path.join(__dirname, "client/build")));
+app.use(express.static(path.join(__dirname, "../frontend/dist")));
 
 const { Pool } = pkg;
 const pool = new Pool({
@@ -355,13 +355,11 @@ app.post("/api/totalBudget/:userId", async (req, res) => {
 // app.get("/", (req, res) => res.send("🚀 Backend running"));
 
 // API routes
-app.get("/api/hello", (req, res) => {
-  res.json({ message: "Hello from backend!" });
-});
+
 
 // Serve React app for any other route
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "client/build", "index.html"));
+  res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
 });
 
 app.listen(port, () =>
