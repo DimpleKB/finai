@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import pkg from "pg";
 import dotenv from "dotenv";
 import multer from "multer";
