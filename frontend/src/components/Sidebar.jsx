@@ -45,7 +45,7 @@ const Sidebar = () => {
           <img
             src={
               user?.profile_pic
-                ? `http://localhost:5000/uploads/${user.profile_pic}`
+                ? `/uploads/${user.profile_pic}`
                 : "https://via.placeholder.com/80"
             }
             alt="Profile"
