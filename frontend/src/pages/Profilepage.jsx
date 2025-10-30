@@ -20,11 +20,11 @@ function ProfilePage() {
   // Fetch user if not loaded
   useEffect(() => {
     if (!user?.username && currentUserId) {
-      fetch(`http://localhost:5000/api/user/${currentUserId}`)
+      fetch(`/api/user/${currentUserId}`)
         .then(res => res.json())
         .then(data => {
           setUser(data);
-          setFilePreview(data.profile_pic ? `http://localhost:5000/uploads/${data.profile_pic}` : "/default-avatar.png");
+          setFilePreview(data.profile_pic ? `/uploads/${data.profile_pic}` : "/default-avatar.png");
           setLoading(false);
         })
         .catch(err => {
@@ -36,7 +36,7 @@ function ProfilePage() {
 
   // Update preview when user changes
   useEffect(() => {
-    setFilePreview(user?.profile_pic ? `http://localhost:5000/uploads/${user.profile_pic}` : "/default-avatar.png");
+    setFilePreview(user?.profile_pic ? `/uploads/${user.profile_pic}` : "/default-avatar.png");
   }, [user]);
 
   if (loading) return <div>Loading user data...</div>;
@@ -66,7 +66,7 @@ function ProfilePage() {
 
     try {
       setSaving(true);
-      const res = await fetch(`http://localhost:5000/api/user/${currentUserId}`, {
+      const res = await fetch(`/api/user/${currentUserId}`, {
         method: "PUT",
         body: formData,
       });
@@ -92,14 +92,14 @@ function ProfilePage() {
       const consentId = "sandbox_consent_" + Date.now(); // simulate sandbox consent
 
       // Save consent in backend
-      await fetch(`http://localhost:5000/api/bank/connect/${user.id}`, {
+      await fetch(`/api/bank/connect/${user.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bankName, consentId }),
       });
 
       // Fetch transactions automatically
-      const res = await fetch(`http://localhost:5000/api/bank/fetch-transactions/${user.id}`, {
+      const res = await fetch(`/api/bank/fetch-transactions/${user.id}`, {
         method: "POST",
       });
       const data = await res.json();

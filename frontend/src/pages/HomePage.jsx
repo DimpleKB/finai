@@ -25,7 +25,7 @@ const HomePage = () => {
   const fetchTransactions = async () => {
     if (!userId) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/transactions/${userId}`);
+      const res = await fetch(`/api/transactions/${userId}`);
       const data = await res.json();
       setTransactions(data);
       setFiltered(data);
@@ -60,7 +60,7 @@ const HomePage = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this transaction?")) return;
     try {
-      await fetch(`http://localhost:5000/api/transactions/${userId}/${id}`, { method: "DELETE" });
+      await fetch(`/api/transactions/${userId}/${id}`, { method: "DELETE" });
       fetchTransactions();
     } catch (err) {
       console.error(err);
@@ -85,7 +85,7 @@ const HomePage = () => {
 
   const handleSave = async (id) => {
     try {
-      await fetch(`http://localhost:5000/api/transactions/${userId}/${id}`, {
+      await fetch(`/api/transactions/${userId}/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editForm),

@@ -33,7 +33,7 @@ const DashboardPage = () => {
 
     const fetchTransactions = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/transactions/${userId}`);
+        const res = await fetch(`/api/transactions/${userId}`);
         if (!res.ok) throw new Error("Failed to fetch transactions");
         const data = await res.json();
         setTransactions(data);
