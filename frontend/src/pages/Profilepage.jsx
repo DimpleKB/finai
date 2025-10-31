@@ -20,7 +20,7 @@ function ProfilePage() {
   // Fetch user if not loaded
   useEffect(() => {
     if (!user?.username && currentUserId) {
-      fetch(`/api/user/${currentUserId}`)
+      fetch(`http://localhost:5000/api/user/${currentUserId}`)
         .then(res => res.json())
         .then(data => {
           setUser(data);
@@ -66,7 +66,7 @@ function ProfilePage() {
 
     try {
       setSaving(true);
-      const res = await fetch(`/api/user/${currentUserId}`, {
+      const res = await fetch(`http://localhost:5000/api/user/${currentUserId}`, {
         method: "PUT",
         body: formData,
       });
@@ -99,7 +99,7 @@ function ProfilePage() {
       });
 
       // Fetch transactions automatically
-      const res = await fetch(`/api/bank/fetch-transactions/${user.id}`, {
+      const res = await fetch(`http://localhost:5000/api/bank/fetch-transactions/${user.id}`, {
         method: "POST",
       });
       const data = await res.json();

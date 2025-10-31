@@ -6,19 +6,26 @@ import dotenv from "dotenv";
 import multer from "multer";
 import path from "path";
 import axios from "axios";
-import { fileURLToPath } from "url";
+// import { fileURLToPath } from "url";
 
 dotenv.config();
 const app = express();
-const port = process.env.PORT || 10000;
+const port = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-app.use(express.static(path.join(__dirname, "dist")));
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
+// app.use(express.static(path.join(__dirname, "dist")));
 
 const { Pool } = pkg;
 const pool = new Pool({
@@ -352,15 +359,15 @@ app.post("/api/totalBudget/:userId", async (req, res) => {
 // ===============================================================
 // 🔹 SERVER START
 // ===============================================================
-// app.get("/", (req, res) => res.send("🚀 Backend running"));
+app.get("/", (req, res) => res.send("🚀 Backend running"));
 
 // API routes
 
 
 // Serve React app for any other route
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "dist","index.html"));
-});
+// app.get("*", (req, res) => {
+//   res.sendFile(path.join(__dirname, "dist","index.html"));
+// });
 
 app.listen(port, () =>
   console.log(`✅ Server running at http://localhost:${port}`)
