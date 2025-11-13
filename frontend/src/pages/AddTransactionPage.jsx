@@ -215,7 +215,7 @@ const AddTransactionPage = () => {
     if (!type || !category || !amount || !date) return alert("❌ All fields are required!");
 
     try {
-      const res = await fetch(`http://localhost:5000/api/transactions/${userId}`, {
+      const res = await fetch(`https://backend-nk1t.onrender.com/api/transactions/${userId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type, category, amount: parseFloat(amount), date }),

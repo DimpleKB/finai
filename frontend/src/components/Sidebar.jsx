@@ -1,13 +1,54 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useUser } from "../context/UserContext";
 import { useTheme } from "../context/ThemeContext";
 
 const Sidebar = () => {
-  const { user } = useUser();
+  const { user, setUser, currentUserId } = useUser();
   const location = useLocation();
   const navigate = useNavigate();
-  const { darkMode } = useTheme(); // get dark mode state
+  const { darkMode } = useTheme();
+
+  const [profilePicUrl, setProfilePicUrl] = useState("/default-avatar.png");
+
+  // ⚡ Load user instantly from localStorage (no delay)
+  useEffect(() => {
+    if (!user) {
+      const localUser = localStorage.getItem("user");
+      if (localUser) {
+        setUser(JSON.parse(localUser));
+      }
+    }
+  }, [user, setUser]);
+
+  // 🧠 Fetch fresh data from backend only once (background refresh)
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        if (currentUserId) {
+          const res = await fetch(`http://localhost:5000/api/user/${currentUserId}`);
+          const data = await res.json();
+          setUser(data);
+          localStorage.setItem("user", JSON.stringify(data)); // keep it fresh
+        }
+      } catch (err) {
+        console.error("Sidebar user fetch failed:", err);
+      }
+    };
+    if (currentUserId && !user?.username) fetchUser();
+  }, [currentUserId]);
+
+  // 🎨 Handle profile pic
+  useEffect(() => {
+    if (user?.profile_pic) {
+      const pic = user.profile_pic.startsWith("http")
+        ? user.profile_pic
+        : `http://localhost:5000/uploads/${user.profile_pic}`;
+      setProfilePicUrl(pic);
+    } else {
+      setProfilePicUrl("/default-avatar.png");
+    }
+  }, [user]);
 
   const items = [
     { name: "Home", icon: "🏠", path: "/homepage" },
@@ -19,11 +60,13 @@ const Sidebar = () => {
   ];
 
   const handleLogout = () => {
+    localStorage.removeItem("user");
     localStorage.removeItem("userId");
+    setUser(null);
     navigate("/login");
   };
 
-  // Colors based on theme
+  // 🌓 Theme colors
   const bgColor = darkMode ? "#121212" : "#0d47a1";
   const linkDefault = darkMode ? "#b0bec5" : "#cfd8dc";
   const linkActive = darkMode ? "#64b5f6" : "#fff";
@@ -39,46 +82,52 @@ const Sidebar = () => {
       }}
     >
       <div>
-        {/* User Info */}
         <div style={userInfoStyle}>
           <h2 style={{ marginBottom: "15px", color: linkActive }}>FINAI</h2>
           <img
-            src={
-              user?.profile_pic
-                ? `/uploads/${user.profile_pic}`
-                : "https://via.placeholder.com/80"
-            }
+            src={profilePicUrl}
             alt="Profile"
             style={{ ...profilePicStyle, border: `3px solid ${profileBorder}` }}
+            onError={(e) => (e.target.src = "/default-avatar.png")}
           />
           <h3 style={{ marginTop: "10px", fontWeight: "500", color: linkActive }}>
             {user?.username || "User"}
           </h3>
         </div>
 
-        {/* Navigation Links */}
         {items.map((item) => (
           <Link
             key={item.name}
             to={item.path}
             style={{
               ...linkStyle,
-              background: location.pathname === item.path ? linkActive : "transparent",
-              color: location.pathname === item.path ? (darkMode ? "#121212" : "black") : linkDefault,
+              background:
+                location.pathname === item.path ? linkActive : "transparent",
+              color:
+                location.pathname === item.path
+                  ? darkMode
+                    ? "#121212"
+                    : "black"
+                  : linkDefault,
             }}
           >
-            <span style={{ marginRight: "12px", fontSize: "18px" }}>{item.icon}</span>
+            <span style={{ marginRight: "12px", fontSize: "18px" }}>
+              {item.icon}
+            </span>
             {item.name}
           </Link>
         ))}
       </div>
 
-      {/* Logout Button */}
       <button
         onClick={handleLogout}
         style={{ ...logoutBtnStyle, background: logoutColor }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = darkMode ? "#e53935" : "#d32f2f")}
-        onMouseLeave={(e) => (e.currentTarget.style.background = logoutColor)}
+        onMouseEnter={(e) =>
+          (e.currentTarget.style.background = darkMode ? "#e53935" : "#d32f2f")
+        }
+        onMouseLeave={(e) =>
+          (e.currentTarget.style.background = logoutColor)
+        }
       >
         🔓 Logout
       </button>
@@ -86,9 +135,9 @@ const Sidebar = () => {
   );
 };
 
-// Sidebar styles
+// ===== Styles =====
 const sidebarStyle = {
-  height: "700px",
+  height: "100vh",
   width: "260px",
   padding: "30px 20px",
   display: "flex",
@@ -103,11 +152,7 @@ const sidebarStyle = {
   transition: "background 0.3s, color 0.3s",
 };
 
-const userInfoStyle = {
-  textAlign: "center",
-  marginBottom: "40px",
-};
-
+const userInfoStyle = { textAlign: "center", marginBottom: "40px" };
 const profilePicStyle = {
   width: "90px",
   height: "90px",
@@ -117,10 +162,9 @@ const profilePicStyle = {
   boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
   transition: "border 0.3s",
 };
-
 const linkStyle = {
   marginBottom: "5px",
-  padding: "12px 15px",
+  padding: "10px 1px",
   borderRadius: "10px",
   textDecoration: "none",
   display: "flex",
@@ -130,7 +174,6 @@ const linkStyle = {
   fontWeight: "500",
   fontSize: "16px",
 };
-
 const logoutBtnStyle = {
   padding: "12px 20px",
   borderRadius: "10px",
@@ -139,6 +182,7 @@ const logoutBtnStyle = {
   fontWeight: "600",
   cursor: "pointer",
   transition: "background 0.3s",
+  marginBottom:"50px",
 };
 
 export default Sidebar;
