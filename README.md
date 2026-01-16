@@ -95,3 +95,43 @@ npm start
 # Start frontend
 cd ../frontend
 npm start
+
+```
+
+# 🧠 How It Works
+
+User logs in securely
+
+Adds expense via:
+
+🎙️ Voice input
+
+🧾 Receipt image upload
+
+AI extracts expense details
+
+Data is stored in PostgreSQL
+
+Dashboard updates in real time
+
+# 📈 Future Enhancements
+
+🤖 AI-based spending predictions
+
+💳 Bank & UPI integration
+
+🔔 Budget alerts and notifications
+
+🌍 Multi-language speech support
+
+📱 Mobile app version
+
+# 🎯 Use Cases
+
+Students managing personal expenses
+
+Professionals tracking monthly budgets
+
+Small businesses monitoring expenditures
+
+Anyone aiming for smarter financial planning
